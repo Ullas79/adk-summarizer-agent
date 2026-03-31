@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # ── ADK / Gemini ──────────────────────────────────────────────────────────
     # Tells google-genai SDK to route through Vertex AI instead of AI Studio
     google_genai_use_vertexai: str = "1"
-    gemini_model: str = "gemini-2.0-flash-001"
+    gemini_model: str = "gemini-2.5-flash"
 
     # ── App ───────────────────────────────────────────────────────────────────
     app_name: str = "adk-summarizer-agent"

@@ -18,8 +18,8 @@ RUN pip install --no-cache-dir --upgrade pip \
 # ── Stage 2: lean runtime ─────────────────────────────────────────────────────
 FROM python:3.12-slim AS runtime
 
-# Security: non-root user (with home directory for SDK cache support)
-RUN groupadd --gid 1001 appuser \
+# Security: non-root user
+RUN groupadd --gid 1001 appgroup \
  && useradd --uid 1001 --gid 1001 -m appuser
 
 WORKDIR /app
@@ -28,7 +28,7 @@ WORKDIR /app
 COPY --from=builder /deps /usr/local
 
 # Copy application source
-COPY --chown=appuser:appuser \
+COPY --chown=appuser:appgroup \
      main.py agent.py config.py logger.py ./
 
 USER appuser
