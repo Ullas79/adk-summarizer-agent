@@ -1,6 +1,6 @@
 # ADK Summarizer Agent v2 🤖☁️
 
-A production-grade AI agent built with **Google ADK** and **Gemini 2.0 Flash on Vertex AI**,
+A production-grade AI agent built with **Google ADK** and **Gemini 2.5 Flash on Vertex AI**,
 fully hosted on Google Cloud (Artifact Registry → Cloud Build → Cloud Run).
 
 No API keys — authentication uses **Application Default Credentials** and a
@@ -29,7 +29,7 @@ FastAPI (main.py)
 ADK Agent (agent.py)
     │  Vertex AI
     ▼
-Gemini 2.0 Flash
+Gemini 2.5 Flash
 ```
 
 | File | Purpose |
