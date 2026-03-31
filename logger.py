@@ -1,17 +1,13 @@
 """
 logger.py — Structured JSON logging for Google Cloud Logging.
 
-Cloud Logging ingests JSON log lines written to stdout/stderr and maps:
-  "severity"  → log level
-  "message"   → main log text
-  "httpRequest" → request metadata (auto-displayed in Logs Explorer)
-
-All extra kwargs passed to log calls are added as jsonPayload fields.
+Supports logging calls like:
+  log.info("message", request_id="...", project="...")
+without crashing on unexpected keyword arguments.
 """
 
 import json
 import logging
-import os
 import sys
 from datetime import datetime, timezone
 from typing import Any
@@ -20,31 +16,41 @@ from typing import Any
 class _CloudFormatter(logging.Formatter):
     """Emit one JSON object per log record, compatible with Cloud Logging."""
 
-    SEVERITY_MAP = {
-        logging.DEBUG: "DEBUG",
-        logging.INFO: "INFO",
-        logging.WARNING: "WARNING",
-        logging.ERROR: "ERROR",
-        logging.CRITICAL: "CRITICAL",
-    }
-
     def format(self, record: logging.LogRecord) -> str:  # noqa: A003
         payload: dict[str, Any] = {
-            "severity": self.SEVERITY_MAP.get(record.levelno, "DEFAULT"),
+            "severity": getattr(record, "levelname", "INFO"),
             "message": record.getMessage(),
             "time": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
             "logger": record.name,
         }
 
-        # Attach any extra fields the caller passed in
+        skip_keys = {
+            "msg",
+            "args",
+            "levelname",
+            "levelno",
+            "pathname",
+            "filename",
+            "module",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "lineno",
+            "funcName",
+            "created",
+            "msecs",
+            "relativeCreated",
+            "thread",
+            "threadName",
+            "processName",
+            "process",
+            "taskName",
+            "name",
+            "message",
+        }
+
         for key, val in record.__dict__.items():
-            if key not in (
-                "msg", "args", "levelname", "levelno", "pathname", "filename",
-                "module", "exc_info", "exc_text", "stack_info", "lineno",
-                "funcName", "created", "msecs", "relativeCreated", "thread",
-                "threadName", "processName", "process", "taskName", "name",
-                "message",
-            ):
+            if key not in skip_keys:
                 payload[key] = val
 
         if record.exc_info:
@@ -53,7 +59,20 @@ class _CloudFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
-def get_logger(name: str) -> logging.Logger:
+class _StructuredAdapter(logging.LoggerAdapter):
+    """Move arbitrary keyword arguments into `extra` for structured logging."""
+
+    def process(self, msg, kwargs):
+        extra = kwargs.pop("extra", {}) or {}
+        reserved = {"exc_info", "stack_info", "stacklevel"}
+        keys_to_move = [k for k in list(kwargs.keys()) if k not in reserved]
+        for key in keys_to_move:
+            extra[key] = kwargs.pop(key)
+        kwargs["extra"] = extra
+        return msg, kwargs
+
+
+def get_logger(name: str) -> logging.LoggerAdapter:
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = logging.StreamHandler(sys.stdout)
@@ -61,6 +80,5 @@ def get_logger(name: str) -> logging.Logger:
         logger.addHandler(handler)
         logger.propagate = False
 
-    level = os.environ.get("LOG_LEVEL", "INFO").upper()
-    logger.setLevel(getattr(logging, level, logging.INFO))
-    return logger
+    logger.setLevel(logging.INFO)
+    return _StructuredAdapter(logger, {})
